@@ -9,7 +9,7 @@ Popular `embedding` na base
 python main.py
 ```
 
-Análisar semelhança
+Analisar semelhança
 ```bash
 python search.mongodb.py -q "o valor que você quer comparar"
 ```
