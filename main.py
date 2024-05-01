@@ -26,7 +26,7 @@ def main(_: List[str]) -> Literal[0]:
         project = { "_id": 1, "comment": 1 })]
 
     print("[step] embedding documents")
-    docs_update = documents.embedding_list(docs[:10])
+    docs_update = documents.embedding_list(docs)
 
     print("[step] normalize documents")
     docs_normalized = documents.normalize_embedding(docs_update)
@@ -35,12 +35,12 @@ def main(_: List[str]) -> Literal[0]:
     res = documents.update_documents(docs_normalized)
     pprint(res.bulk_api_result if res != None else None)
 
-    print("[step] clustering")
-    docs_clustering = documents.clustering([doc["embedding"] for doc in docs_normalized])
+    # print("[step] clustering")
+    # docs_clustering = documents.clustering([doc["embedding"] for doc in docs_normalized])
 
-    print("[step] grouping cluster")
-    docs_grouping = documents.group_cluster(docs, docs_clustering)
-    pprint(docs_grouping, width=180)
+    # print("[step] grouping cluster")
+    # docs_grouping = documents.group_cluster(docs, docs_clustering)
+    # pprint(docs_grouping, width=180)
 
     return 0
 

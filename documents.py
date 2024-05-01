@@ -1,4 +1,4 @@
-import string
+from collections import Counter
 from typing import List
 
 from joblib import Parallel, delayed
@@ -10,7 +10,7 @@ from sklearn.cluster import KMeans
 from tqdm import tqdm
 
 from connect import Connection
-from normalize_map import normalize_map
+from utils import Utils
 
 
 class EmbeddingDocuments:
@@ -18,8 +18,9 @@ class EmbeddingDocuments:
         self.connection = Connection().open(uri)
         self.database = self.connection[database]
         self.collection = self.database[collection]
-        
+
         self.model = SentenceTransformer(model, device="cuda")
+        self.cluster_model = None
 
 
     def find_all(self, filter: dict, project: dict) -> cursor:
@@ -33,7 +34,8 @@ class EmbeddingDocuments:
             UpdateOne(
                 { "_id": doc["_id"] },
                 { "$set": {
-                    "embedding": doc["embedding"].tolist()
+                    "embedding": doc["embedding"].tolist(),
+                    "comment_normalized": doc["comment_normalized"],
                 }}
             ) for doc in tqdm(docs)
         ]
@@ -41,26 +43,20 @@ class EmbeddingDocuments:
 
 
     def normalize(self, sentence: str) -> str:
-        sentence = sentence.lower()
-        sentence = sentence.strip()
-
-        # remove accents
-        sentence = sentence.translate(str.maketrans(normalize_map))
-
-        # remove punctuation
-        sentence = sentence.translate(sentence.maketrans("", "", string.punctuation)) 
-
-        return sentence
+        return Utils().normalize(sentence)
 
 
-    def embedding_string(self, comment: str) -> List[any]:
-        return self.model.encode(self.normalize(comment), convert_to_numpy=True)
+    def embedding_string(self, comment: str) -> tuple:
+        comment_normalized = " ".join(Counter(self.normalize(comment).split()).keys())
+        embedding = self.model.encode(comment_normalized, convert_to_tensor=True).cpu().data.numpy()
+        return (embedding, comment_normalized)
 
 
     def embedding_list(self, docs: List[dict[str, any]]) -> List[dict[str, any]]:
         embeddings = Parallel(n_jobs=6, prefer="threads")(delayed(self.embedding_string)(doc["comment"]) for doc in tqdm(docs))
         return [ dict(docs[i], **{
-                'embedding': embeddings[i]
+                'embedding': embeddings[i][0],
+                'comment_normalized': embeddings[i][1],
             }
         ) for i in tqdm(range(len(docs))) ]
 
@@ -75,14 +71,16 @@ class EmbeddingDocuments:
                 "_id": doc["_id"],
                 "comment": doc["comment"],
                 "embedding": embeddings[i],
+                "comment_normalized": doc["comment_normalized"]
             })
             i += 1
         return docs_embeddings
 
 
     def clustering(self, corpus_embedding: List) -> List:
-        model = KMeans(n_clusters=14)
+        model = KMeans(n_clusters=1000)
         model.fit(corpus_embedding)
+        self.cluster_model = model
         return model.labels_
 
 
