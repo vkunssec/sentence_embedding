@@ -26,7 +26,9 @@ def main(_):
 
     q = args.query if args.query != None else "campo que será comparado"
     print("Comparação feito a partir da Query: ", q)
-    query = documents.embedding_string(q).tolist()
+    query = documents.embedding_string(q)
+    print("Query normalizada: ", query[1])
+    query = query[0].tolist()
 
     pipeline = []
     pipeline.append({
